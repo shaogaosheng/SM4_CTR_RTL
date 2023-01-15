@@ -5,6 +5,8 @@ module SM4_KEY_CKI(
     output [31:0]  sm4_key_cki
 );
     
+reg [4:0] 	cki_out;
+
 always@(posedge clk_sys)
 begin
 	case(sm4_round_cnt)

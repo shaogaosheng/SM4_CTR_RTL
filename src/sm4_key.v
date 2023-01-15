@@ -6,8 +6,8 @@ module SM4_KEY (
     input    [127:0]  sm4_key_in,
     input             sm4_key_in_vld,
 
-    output   [31:0]   key2core_rkey,
-    output            key2core_rkey_vld
+    output   reg [31:0]   key2core_rkey,
+    output   reg          key2core_rkey_vld
 );
 
 localparam IDLE          = 1'b0;
@@ -28,18 +28,27 @@ reg [31:0] sm4_key_1part; //sm4_key[95:64]
 reg [31:0] sm4_key_2part; //sm4_key[63:32]
 reg [31:0] sm4_key_3part; //sm4_key[31:0]
 
+wire [127:0] sm4_key_exp_in;
+wire [31:0] sm4_rkey_out;
+
 reg [4:0] sm4_round_cnt;
 reg fsm_curr_state;
 reg fsm_next_state;
 
 wire [31:0]  sm4_key_cki;
 
+assign    { sm4_key_in_0part,
+            sm4_key_in_1part,
+            sm4_key_in_2part,
+            sm4_key_in_3part}    =    sm4_key_in;
+
+
 always @(posedge clk_sys)
 begin
     if (sys_rst_n == 1'b0) begin
         sm4_round_cnt <= 5'd0;
     end
-    else if (fsm_curr_state == IDLE) begin
+    else if (fsm_curr_state == KEY_EXPANSION) begin
         sm4_round_cnt <= sm4_round_cnt + 1'b1;
     end
     else ;
@@ -132,7 +141,17 @@ begin
 end
 
 assign sm4_key_exp_in = {sm4_key_0part,sm4_key_1part,sm4_key_2part,sm4_key_3part};
-assign key2core_rkey = sm4_rkey_out;
+
+always @(posedge clk_sys)
+begin
+    if (sys_rst_n == 1'b0) begin
+        key2core_rkey <= 32'd0;
+    end
+    else if (fsm_curr_state == KEY_EXPANSION) begin
+        key2core_rkey <= sm4_rkey_out;
+    end
+    else ;
+end
 
 
 SM4_KEY_CKI U_SM4_KEY_CKI(

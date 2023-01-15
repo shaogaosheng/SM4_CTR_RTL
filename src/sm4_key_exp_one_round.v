@@ -1,7 +1,7 @@
 module SM4_KEY_EXP_ONE_ROUND(
     input         [127 : 0]    sm4_key_exp_in,
     input         [31  : 0]    sm4_key_cki,
-    output   reg  [31  : 0]    sm4_rkey_out
+    output  wire  [31  : 0]    sm4_rkey_out
 );
 
 wire [31:0] sm4_key_exp_in_0part;
