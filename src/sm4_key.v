@@ -6,7 +6,7 @@ module SM4_KEY (
     input    [127:0]  sm4_key_in,
     input             sm4_key_in_vld,
 
-    output   reg [31:0]   key2core_rkey,
+    output   reg [1023:0]   key2core_rkey,
     output   reg          key2core_rkey_vld
 );
 
@@ -31,6 +31,9 @@ reg [31:0] sm4_key_3part; //sm4_key[31:0]
 wire [127:0] sm4_key_exp_in;
 wire [31:0] sm4_rkey_out;
 
+reg [31:0] rkey_reg_array [31:0];
+reg [31:0] rkey_reg;
+
 reg [4:0] sm4_round_cnt;
 reg fsm_curr_state;
 reg fsm_next_state;
@@ -42,16 +45,18 @@ assign    { sm4_key_in_0part,
             sm4_key_in_2part,
             sm4_key_in_3part}    =    sm4_key_in;
 
-
+//count 0~31
 always @(posedge clk_sys)
 begin
     if (sys_rst_n == 1'b0) begin
         sm4_round_cnt <= 5'd0;
-    end
+    end 
     else if (fsm_curr_state == KEY_EXPANSION) begin
         sm4_round_cnt <= sm4_round_cnt + 1'b1;
     end
-    else ;
+    else begin
+        sm4_round_cnt <= 5'd0;
+    end
 end
 
 always @(posedge clk_sys)
@@ -142,13 +147,33 @@ end
 
 assign sm4_key_exp_in = {sm4_key_0part,sm4_key_1part,sm4_key_2part,sm4_key_3part};
 
+genvar i;
+generate
+    for (i = 0; i<32; i=i+1) begin : rkey_men
+        always @(posedge clk_sys)
+        begin
+            if (sys_rst_n == 1'b0) begin
+                rkey_reg_array[i] <= 32'd0;
+            end
+            else if ((sm4_round_cnt == i) && (fsm_curr_state == KEY_EXPANSION)) begin
+                rkey_reg_array[i] <= sm4_rkey_out;
+            end
+            else ;
+        end
+    end
+endgenerate
+
+
 always @(posedge clk_sys)
 begin
     if (sys_rst_n == 1'b0) begin
-        key2core_rkey <= 32'd0;
+        key2core_rkey_vld <= 1'b0;
     end
-    else if (fsm_curr_state == KEY_EXPANSION) begin
-        key2core_rkey <= sm4_rkey_out;
+    else if (sm4_round_cnt == 5'd31) begin
+        key2core_rkey_vld <= 1'b1;
+    end
+    else if ((sm4_start == 1'b1) && (sm4_key_in_vld == 1'b1)) begin
+        key2core_rkey_vld <= 1'b0;
     end
     else ;
 end
