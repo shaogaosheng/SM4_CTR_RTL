@@ -1,14 +1,34 @@
 module SM4_KEY (
-    input             clk_sys,
-    input             sys_rst_n,
+    input                     clk_sys,
+    input                     sys_rst_n,
 
-    input             sm4_start,
-    input    [127:0]  sm4_key_in,
-    input             sm4_key_in_vld,
+    input                     sm4_start,
+    input          [127:0]    sm4_key_in,
+    input                     sm4_key_in_vld,
 
-    output   reg [1023:0]   key2core_rkey,
-    output   reg          key2core_rkey_vld
+    output   wire  [1023:0]   key2core_rkey,
+    output   wire             key2core_rkey_vld
 );
+
+//Pack A two-dimensional array into a one-dimensional array
+`define PACK_ARRAY(PK_WIDTH,PK_LEN,PK_SRC,PK_DEST) \
+                generate \
+                genvar pk_idx; \
+                for (pk_idx=0; pk_idx<(PK_LEN); pk_idx=pk_idx+1) \
+                begin \
+                        assign PK_DEST[((PK_WIDTH)*pk_idx+((PK_WIDTH)-1)):((PK_WIDTH)*pk_idx)] = PK_SRC[pk_idx][((PK_WIDTH)-1):0]; \
+                end \
+                endgenerate
+
+//Pack A one-dimensional array into a two-dimensional array
+`define UNPACK_ARRAY(PK_WIDTH,PK_LEN,PK_DEST,PK_SRC) \
+                generate \
+                genvar unpk_idx; \
+                for (unpk_idx=0; unpk_idx<(PK_LEN); unpk_idx=unpk_idx+1) \
+                begin \
+                        assign PK_DEST[unpk_idx][((PK_WIDTH)-1):0] = PK_SRC[((PK_WIDTH)*unpk_idx+(PK_WIDTH-1)):((PK_WIDTH)*unpk_idx)]; \
+                end \
+                endgenerate
 
 localparam IDLE          = 1'b0;
 localparam KEY_EXPANSION = 1'b1;
@@ -32,7 +52,7 @@ wire [127:0] sm4_key_exp_in;
 wire [31:0] sm4_rkey_out;
 
 reg [31:0] rkey_reg_array [31:0];
-reg [31:0] rkey_reg;
+reg rkey_vld;
 
 reg [4:0] sm4_round_cnt;
 reg fsm_curr_state;
@@ -43,7 +63,7 @@ wire [31:0]  sm4_key_cki;
 assign    { sm4_key_in_0part,
             sm4_key_in_1part,
             sm4_key_in_2part,
-            sm4_key_in_3part}    =    sm4_key_in;
+            sm4_key_in_3part }    =    sm4_key_in;
 
 //count 0~31
 always @(posedge clk_sys)
@@ -163,21 +183,23 @@ generate
     end
 endgenerate
 
+`PACK_ARRAY(32,32,rkey_reg_array,key2core_rkey)
 
 always @(posedge clk_sys)
 begin
     if (sys_rst_n == 1'b0) begin
-        key2core_rkey_vld <= 1'b0;
+        rkey_vld <= 1'b0;
     end
     else if (sm4_round_cnt == 5'd31) begin
-        key2core_rkey_vld <= 1'b1;
+        rkey_vld <= 1'b1;
     end
     else if ((sm4_start == 1'b1) && (sm4_key_in_vld == 1'b1)) begin
-        key2core_rkey_vld <= 1'b0;
+        rkey_vld <= 1'b0;
     end
     else ;
 end
 
+assign key2core_rkey_vld = rkey_vld;
 
 SM4_KEY_CKI U_SM4_KEY_CKI(
     .clk_sys(clk_sys),

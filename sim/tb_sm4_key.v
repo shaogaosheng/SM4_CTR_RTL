@@ -7,7 +7,7 @@ reg sm4_start;
 reg [127:0] sm4_key_in;
 reg sm4_key_in_vld;
 
-wire [31:0] key2core_rkey;
+wire [1023:0] key2core_rkey;
 wire key2core_rkey_vld;
 
 initial begin
